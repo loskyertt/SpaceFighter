@@ -18,25 +18,25 @@ CompileFlags:
     - -arch
     - -stdlib=*
 
-Diagnostics:
-  ClangTidy:
-    FastCheckFilter: Strict
-  UnusedIncludes: Strict # 检测多余的 #include
+# Diagnostics:
+#   ClangTidy:
+#     FastCheckFilter: Strict
+#   UnusedIncludes: Strict # 检测多余的 #include
 
-Completion:
-  AllScopes: Yes # 补全包含所有命名空间符号
+# Completion:
+#   AllScopes: Yes # 补全包含所有命名空间符号
 
-InlayHints:
-  Enabled: Yes
-  ParameterNames: Yes
-  DeducedTypes: Yes
-  Designators: Yes # 聚合初始化字段名提示（原来缺少）
-  BlockEnd: false
-  DefaultArguments: true
+# InlayHints:
+#   Enabled: Yes
+#   ParameterNames: Yes
+#   DeducedTypes: Yes
+#   Designators: Yes # 聚合初始化字段名提示（原来缺少）
+#   BlockEnd: false
+#   DefaultArguments: true
 
-Hover:
-  ShowAKA: Yes
+# Hover:
+#   ShowAKA: Yes
 
-Index:
-  Background: Build
-  StandardLibrary: Yes
+# Index:
+#   Background: Build
+#   StandardLibrary: Yes

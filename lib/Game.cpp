@@ -5,9 +5,18 @@
 #include <SDL_events.h>
 #include <SDL_log.h>
 #include <SDL_render.h>
+#include <SDL_stdinc.h>
+#include <SDL_timer.h>
 #include <SDL_video.h>
+#include <SDL_image.h>
 
 Game::Game() {}
+
+// 单例模式实现
+Game &Game::getInstance() {
+  static Game instance;
+  return instance;
+}
 
 Game::~Game() {
   clean();
@@ -15,14 +24,27 @@ Game::~Game() {
 
 void Game::run() {
   while (isRunning) {
+    auto frameStart = SDL_GetTicks();  // 记录开始时刻
+
     SDL_Event event;
     handleEvent(&event);
-    update();
+    update(deltaTime);
     render();
+
+    auto frameEnd = SDL_GetTicks();  // 记录结束时刻
+    auto diff = frameEnd - frameStart;
+    if (diff < frameTime) {
+      SDL_Delay(frameTime - diff);
+      deltaTime = static_cast<float>(frameTime) / 1000.0f;  // 将 ms 转换为 s
+    } else {
+      deltaTime = static_cast<float>(diff) / 1000.0f;
+    }
   }
 }
 
 void Game::init() {
+  frameTime = static_cast<Uint32>(1000 / FPS);
+
   // SDL 初始化
   if (SDL_Init(SDL_INIT_EVERYTHING) < 0) {
     SDL_LogError(SDL_LOG_CATEGORY_ERROR,
@@ -32,7 +54,8 @@ void Game::init() {
 
   // 创建窗口
   window = SDL_CreateWindow("飞船大战", SDL_WINDOWPOS_CENTERED,
-                            SDL_WINDOWPOS_CENTERED, windowWidth, windowHeight, SDL_WINDOW_SHOWN);
+                            SDL_WINDOWPOS_CENTERED, windowWidth, windowHeight,
+                            SDL_WINDOW_SHOWN);
   if (window == nullptr) {
     SDL_LogError(SDL_LOG_CATEGORY_ERROR,
                  "Window could not be created! SDL_Error: %s\n",
@@ -48,7 +71,17 @@ void Game::init() {
                  SDL_GetError());
     isRunning = false;
   }
+
+  // 初始化 SDL_image
+  if (IMG_Init(IMG_INIT_PNG) != IMG_INIT_PNG) {
+    SDL_Log("SDL_image could not initialize! SDL_image Error: %s\n",
+            IMG_GetError());
+    isRunning = false;
+  }
+
+  // 创建当前场景
   currentScene = new SceneMain();
+  currentScene->init();
 }
 
 void Game::clean() {
@@ -56,6 +89,9 @@ void Game::clean() {
     currentScene->clean();
     delete currentScene;
   }
+
+  // 清理图片资源
+  IMG_Quit();
 
   SDL_DestroyRenderer(renderer);
   SDL_DestroyWindow(window);
@@ -81,8 +117,8 @@ void Game::handleEvent(SDL_Event *event) {
   }
 }
 
-void Game::update() {
-  currentScene->update();
+void Game::update(float time) {
+  currentScene->update(deltaTime);
 }
 
 void Game::render() {
