@@ -1,0 +1,42 @@
+# 官方文档: https://clangd.llvm.org/config
+CompileFlags:
+  Add:
+    - -std=c++20
+    - -Wall
+    - -Wextra
+    - -Wconversion
+    - -Wno-padded
+    - -Wno-unused-parameter
+    - -Wno-missing-declarations
+    - -Wno-missing-prototypes
+    - -Wno-c++98-compat
+    - -Wno-c++98-compat-pedantic
+    - -DSDL_DISABLE_M_PREFETCH=1
+    - -D__PRFCHWINTRIN_H=1
+  Remove:
+    - -m*
+    - -arch
+    - -stdlib=*
+
+Diagnostics:
+  ClangTidy:
+    FastCheckFilter: Strict
+  UnusedIncludes: Strict # 检测多余的 #include
+
+Completion:
+  AllScopes: Yes # 补全包含所有命名空间符号
+
+InlayHints:
+  Enabled: Yes
+  ParameterNames: Yes
+  DeducedTypes: Yes
+  Designators: Yes # 聚合初始化字段名提示（原来缺少）
+  BlockEnd: false
+  DefaultArguments: true
+
+Hover:
+  ShowAKA: Yes
+
+Index:
+  Background: Build
+  StandardLibrary: Yes
