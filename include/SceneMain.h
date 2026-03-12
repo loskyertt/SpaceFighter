@@ -4,6 +4,8 @@
 #include "Scene.h"
 #include "Object.h"
 
+#include <SDL_rect.h>
+
 #include <list>
 #include <random>
 
@@ -13,18 +15,23 @@ class SceneMain : public Scene {
  private:
   Game &game;
   Player player;
+  bool isDead = false;  // 玩家是否死亡
 
  private:
-  // 在栈上创建一个用户子弹的（被拷贝）模板
-  ProjectilePlayer
-      projectilePlayerTemplate;  // 可以先把材质文件加载进模板（内存），毕竟 I/O 很费时
+  // 模板在栈上创建，玩家就一个，自然不需要模板
+  // 可以先把材质文件加载进模板（内存），毕竟 I/O 很费时
+  ProjectilePlayer projectilePlayerTemplate;  // 模板：用户子弹
+  Enemy enemyTempalte;                        // 模板：敌机
+  ProjectileEnemy projectileEnemyTemplate;    // 模板：敌机子弹
+  Explosion explosionTemplate;                // 模板：爆炸特效
+  Item itemLifeTemplate;                      // 掉落物模板：血包
 
-  std::list<ProjectilePlayer *> projectilesPlayer;
-
- private:
-  // 在栈上创建一个敌机的（被拷贝）模板
-  Enemy enemyTempalte;
-  std::list<Enemy *> enemies;
+  // 容器
+  std::list<ProjectilePlayer *> projectilesPlayer;  // 容器：玩家子弹
+  std::list<Enemy *> enemies;                       // 容器：敌机
+  std::list<ProjectileEnemy *> projectilesEnemy;    // 容器：敌机子弹
+  std::list<Explosion *> explosions;                // 容器：爆炸特效
+  std::pmr::list<Item *> items;                     // 容器：掉落物
 
  private:
   std::mt19937 gen;                           // 随机数生成器
@@ -33,6 +40,8 @@ class SceneMain : public Scene {
  public:
   SceneMain();
   ~SceneMain() override;
+
+ public: /* 接口实现 */
   void init() override;
   void update(float time) override;
   void render() override;
@@ -42,10 +51,28 @@ class SceneMain : public Scene {
  public:
   void keyboardControl(float time);  // 键盘逻辑
 
-  void shootPlayer();                        // 玩家射击逻辑
-  void updatePlayerProjectiles(float time);  // 更新玩家子弹
-  void renderPlayerProjectiles();            // 渲染玩家子弹
+  void updatePlayer(float time);  // 玩家状态更新
+  void renderPlayer();            // 渲染玩家
 
-  void spawnEnemy();             // 生成敌机
-  void updateEnemies(float time);  // 更新敌机
+  void shootPlayer();                        // 玩家射击逻辑
+  void updatePlayerProjectiles(float time);  // 更新玩家的子弹
+  void renderPlayerProjectiles();            // 渲染玩家的子弹
+
+  void spawnEnemy();                // 生成敌机
+  void updateEnemies(float time);   // 更新敌机
+  void renderEnemies();             // 渲染敌机
+  void enemyExplode(Enemy *enemy);  // 引爆敌机
+
+  void shootEnemy(Enemy *enemy);            // 敌机射击逻辑
+  SDL_FPoint getDirection(Enemy *enemy);    // 计算敌机子弹方向
+  void updateEnemyProjectiles(float time);  // 更新敌机子弹
+  void renderEnemyProjectiles();            // 渲染敌机的子弹
+
+  void updateExplosions(float time);  // 爆炸特效更新
+  void renderExplosions();            // 渲染爆炸特效
+
+  void dropItem(Enemy *enemy);     // 掉落物品
+  void playerGetItem(Item *item);  // 玩家获得物品
+  void updateItems(float time);    // 更新物品
+  void renderItems();              // 渲染物品
 };

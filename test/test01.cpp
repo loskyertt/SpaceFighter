@@ -68,7 +68,7 @@ int main(int argc, char *argv[]) {
 
     // 画图片
     SDL_Rect dstRect = {300, 100, 200, 200};            // 图片显示位置和大小
-    SDL_RenderCopy(renderer, texture, NULL, &dstRect);
+    SDL_RenderCopy(renderer, texture, NULL, &dstRect);  // NULL = 使用整张图
 
     // 画文本
     SDL_Rect textRect = {100, 350, surface->w, surface->h};  // 文本显示位置和大小

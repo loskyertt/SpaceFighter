@@ -39,6 +39,7 @@ class Game {
   void update(float time);             // 逻辑更新
   void render();                       // 渲染绘制
 
+  /* 提供获得私有属性的外部接口 */
  public:
   SDL_Window *getWindow() { return window; }  // 获取窗口
 

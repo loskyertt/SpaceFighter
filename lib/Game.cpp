@@ -47,35 +47,28 @@ void Game::init() {
 
   // SDL 初始化
   if (SDL_Init(SDL_INIT_EVERYTHING) < 0) {
-    SDL_LogError(SDL_LOG_CATEGORY_ERROR,
-                 "SDL could not initialize! SDL_Error: %s\n", SDL_GetError());
+    SDL_LogError(SDL_LOG_CATEGORY_ERROR, "SDL could not initialize! SDL_Error: %s\n", SDL_GetError());
     isRunning = false;
   }
 
   // 创建窗口
-  window = SDL_CreateWindow("飞船大战", SDL_WINDOWPOS_CENTERED,
-                            SDL_WINDOWPOS_CENTERED, windowWidth, windowHeight,
-                            SDL_WINDOW_SHOWN);
+  window = SDL_CreateWindow(
+      "飞船大战", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, windowWidth, windowHeight, SDL_WINDOW_SHOWN);
   if (window == nullptr) {
-    SDL_LogError(SDL_LOG_CATEGORY_ERROR,
-                 "Window could not be created! SDL_Error: %s\n",
-                 SDL_GetError());
+    SDL_LogError(SDL_LOG_CATEGORY_ERROR, "Window could not be created! SDL_Error: %s\n", SDL_GetError());
     isRunning = false;
   }
 
   // 创建渲染器
   renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
   if (renderer == nullptr) {
-    SDL_LogError(SDL_LOG_CATEGORY_ERROR,
-                 "Renderer could not be created! SDL_Error: %s\n",
-                 SDL_GetError());
+    SDL_LogError(SDL_LOG_CATEGORY_ERROR, "Renderer could not be created! SDL_Error: %s\n", SDL_GetError());
     isRunning = false;
   }
 
   // 初始化 SDL_image
   if (IMG_Init(IMG_INIT_PNG) != IMG_INIT_PNG) {
-    SDL_Log("SDL_image could not initialize! SDL_image Error: %s\n",
-            IMG_GetError());
+    SDL_Log("SDL_image could not initialize! SDL_image Error: %s\n", IMG_GetError());
     isRunning = false;
   }
 

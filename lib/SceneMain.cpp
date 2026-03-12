@@ -8,8 +8,10 @@
 #include <SDL_rect.h>
 #include <SDL_render.h>
 #include <SDL_scancode.h>
+#include <SDL_stdinc.h>
 #include <SDL_timer.h>
 
+#include <cmath>
 #include <cstddef>
 #include <random>
 
@@ -18,65 +20,97 @@ SceneMain::SceneMain() : game(Game::getInstance()) {}
 SceneMain::~SceneMain() {}
 
 void SceneMain::init() {
-  // 随机敌人初始化
+  // 始化敌机生成的随机数
   std::random_device rd;
   gen = std::mt19937(rd());
   dis = std::uniform_real_distribution<float>(0.0f, 1.0f);
   float r = dis(gen);  // 获取随机数
 
   // 玩家属性初始化
-  player.texture =
-      IMG_LoadTexture(game.getRenderer(), "assets/image/SpaceShip.png");
+  player.texture = IMG_LoadTexture(game.getRenderer(), "assets/image/SpaceShip.png");
   SDL_QueryTexture(player.texture, NULL, NULL, &player.width,
                    &player.height);  // 根据 texture 设置宽和高
   player.width /= 4;
   player.height /= 4;
-  player.position.x =
-      static_cast<float>((game.getWindowWidth() - player.width) / 2);
-  player.position.y =
-      static_cast<float>(game.getWindowHeight() - player.height);
+  player.position.x = static_cast<float>((game.getWindowWidth() - player.width) / 2);
+  player.position.y = static_cast<float>(game.getWindowHeight() - player.height);
 
   // 玩家子弹模板初始化
-  projectilePlayerTemplate.texture =
-      IMG_LoadTexture(game.getRenderer(), "assets/image/laser-1.png");
+  projectilePlayerTemplate.texture = IMG_LoadTexture(game.getRenderer(), "assets/image/laser-1.png");
   SDL_QueryTexture(
-      projectilePlayerTemplate.texture, NULL, NULL,
+      projectilePlayerTemplate.texture,
+      NULL,
+      NULL,
       &projectilePlayerTemplate.width,
       &projectilePlayerTemplate.height);  // 根据 texture 设置宽和高
   projectilePlayerTemplate.width /= 4;
   projectilePlayerTemplate.height /= 4;
 
   // 敌机模板初始化
-  enemyTempalte.texture =
-      IMG_LoadTexture(game.getRenderer(), "assets/image/insect-2.png");
-  SDL_QueryTexture(enemyTempalte.texture, NULL, NULL, &enemyTempalte.width,
-                   &enemyTempalte.height);
+  enemyTempalte.texture = IMG_LoadTexture(game.getRenderer(), "assets/image/insect-2.png");
+  SDL_QueryTexture(enemyTempalte.texture, NULL, NULL, &enemyTempalte.width, &enemyTempalte.height);
   enemyTempalte.width /= 4;
   enemyTempalte.height /= 4;
+
+  // 敌机子弹模板初始化
+  projectileEnemyTemplate.texture = IMG_LoadTexture(game.getRenderer(), "assets/image/bullet-1.png");
+  SDL_QueryTexture(
+      projectileEnemyTemplate.texture, NULL, NULL, &projectileEnemyTemplate.width, &projectileEnemyTemplate.height);
+  projectileEnemyTemplate.width /= 4;
+  projectileEnemyTemplate.height /= 4;
+
+  // 爆炸特效模板初始化
+  explosionTemplate.texture = IMG_LoadTexture(game.getRenderer(), "assets/effect/explosion.png");
+  SDL_QueryTexture(explosionTemplate.texture, NULL, NULL, &explosionTemplate.width, &explosionTemplate.height);
+  explosionTemplate.totalFrame = explosionTemplate.width / explosionTemplate.height;
+  // explosionTemplate.height /= 4;
+  explosionTemplate.width = explosionTemplate.height;  // 宽度和高度一样
+
+  // 掉落物（血包）模板初始化
+  itemLifeTemplate.texture = IMG_LoadTexture(game.getRenderer(), "assets/image/bonus_life.png");
+  SDL_QueryTexture(itemLifeTemplate.texture, NULL, NULL, &itemLifeTemplate.width, &itemLifeTemplate.height);
+  itemLifeTemplate.width /= 4;
+  itemLifeTemplate.height /= 4;
 }
 
 void SceneMain::update(float time) {
   keyboardControl(time);
   // SDL_Log("Player position: %f, %f", static_cast<double>(player.position.x), static_cast<double>(player.position.y));
   updatePlayerProjectiles(time);
+  updateEnemyProjectiles(time);
   spawnEnemy();
   updateEnemies(time);
+  updatePlayer(time);
+  updateExplosions(time);
+  updateItems(time);
 }
 
 void SceneMain::render() {
+  /*
+   * 后渲染的图层在先渲染的图层之上
+   */
+
   // 渲染玩家的子弹
-  // 先渲染子弹，再渲染玩家，可以保证玩家图层在子弹图层之上
   renderPlayerProjectiles();
 
+  // 渲染敌机的子弹
+  renderEnemyProjectiles();
+
   // 渲染玩家
-  SDL_Rect playerRect = {static_cast<int>(player.position.x),
-                         static_cast<int>(player.position.y), player.width,
-                         player.height};
-  SDL_RenderCopy(game.getRenderer(), player.texture, NULL, &playerRect);
+  renderPlayer();
+
+  // 渲染敌机
+  renderEnemies();
+
+  // 渲染物品
+  renderItems();
+
+  // 渲染爆炸特效
+  renderExplosions();
 }
 
 void SceneMain::clean() {
-  // 清理容器
+  // 清理玩家子弹容器
   for (auto &projectile : projectilesPlayer) {
     if (projectile != nullptr) {
       delete projectile;  // 删除容器中的指针
@@ -84,17 +118,66 @@ void SceneMain::clean() {
   }
   projectilesPlayer.clear();  // 清空容器
 
+  // 清理敌机容器
+  for (auto &enemy : enemies) {
+    if (enemy != nullptr) {
+      delete enemy;  // 删除容器中的指针
+    }
+  }
+  enemies.clear();  // 清空容器
+
+  // 清理敌机子弹容器
+  for (auto &projectile : projectilesEnemy) {
+    if (projectile != nullptr) {
+      delete projectile;  // 删除容器中的指针
+    }
+  }
+  projectilesEnemy.clear();  // 清空容器
+
+  // 清理爆炸特效容器
+  for (auto &explosion : explosions) {
+    if (explosion != nullptr) {
+      delete explosion;  // 删除容器中的指针
+    }
+  }
+  explosions.clear();  // 清空容器
+
+  // 清理掉落物容器
+  for (auto &item : items) {
+    if (item != nullptr) {
+      delete item;  // 删除容器中的指针
+    }
+  }
+  items.clear();  // 清空容器
+
+  // 清理模板
   if (player.texture != nullptr) {
     SDL_DestroyTexture(player.texture);
   }
   if (projectilePlayerTemplate.texture != nullptr) {
     SDL_DestroyTexture(projectilePlayerTemplate.texture);
   }
+  if (enemyTempalte.texture != nullptr) {
+    SDL_DestroyTexture(enemyTempalte.texture);
+  }
+  if (projectileEnemyTemplate.texture != nullptr) {
+    SDL_DestroyTexture(projectileEnemyTemplate.texture);
+  }
+  if (explosionTemplate.texture != nullptr) {
+    SDL_DestroyTexture(explosionTemplate.texture);
+  }
+  if (itemLifeTemplate.texture != nullptr) {
+    SDL_DestroyTexture(itemLifeTemplate.texture);
+  }
 }
 
 void SceneMain::handleEvent(SDL_Event *event) {}
 
 void SceneMain::keyboardControl(float time) {
+  if (isDead) {
+    return;
+  }
+
   auto keyboardState = SDL_GetKeyboardState(NULL);
 
   // 移动控制逻辑
@@ -115,18 +198,14 @@ void SceneMain::keyboardControl(float time) {
   if (player.position.x < 0) {
     player.position.x = 0;
   }
-  if (player.position.x >
-      static_cast<float>((game.getWindowWidth() - player.width))) {
-    player.position.x =
-        static_cast<float>((game.getWindowWidth() - player.width));
+  if (player.position.x > static_cast<float>((game.getWindowWidth() - player.width))) {
+    player.position.x = static_cast<float>((game.getWindowWidth() - player.width));
   }
   if (player.position.y < 0) {
     player.position.y = 0;
   }
-  if (player.position.y >
-      static_cast<float>(game.getWindowHeight() - player.height)) {
-    player.position.y =
-        static_cast<float>(game.getWindowHeight() - player.height);
+  if (player.position.y > static_cast<float>(game.getWindowHeight() - player.height)) {
+    player.position.y = static_cast<float>(game.getWindowHeight() - player.height);
   }
 
   // 控制子弹发射
@@ -139,13 +218,46 @@ void SceneMain::keyboardControl(float time) {
   }
 }
 
+/* 玩家状态更新 */
+void SceneMain::updatePlayer(float time) {
+  if (isDead) {
+    return;
+  }
+
+  if (player.currentHealth <= 0) {
+    // TODO: Game over
+    auto currentTime = SDL_GetTicks();
+    isDead = true;
+    Explosion *explosion = new Explosion(explosionTemplate);
+    explosion->position.x = player.position.x + static_cast<float>(player.width - explosion->width) / 2;
+    explosion->position.y = player.position.y + static_cast<float>(player.height - explosion->height) / 2;
+    explosion->startTime = currentTime;
+    explosions.push_back(explosion);
+    return;
+  }
+}
+
+/* 渲染玩家 */
+void SceneMain::renderPlayer() {
+  // 玩家没死的时候才渲染
+  if (!isDead) {
+    SDL_Rect playerRect = {
+        static_cast<int>(player.position.x),
+        static_cast<int>(player.position.y),
+        player.width,
+        player.height,
+    };
+    SDL_RenderCopy(game.getRenderer(), player.texture, NULL, &playerRect);  // NULL = 使用整张图
+  }
+}
+
+/* 玩家发射子弹 */
 void SceneMain::shootPlayer() {
   // 发射子弹逻辑实现：发射的时候就在堆内存上创建一个玩家子弹实例
   ProjectilePlayer *projectile = new ProjectilePlayer(
       projectilePlayerTemplate);  // 在堆上创建一个新对象，内容复制自 projectilePlayerTemplate（浅拷贝）
-  projectile->position.x = player.position.x +
-                           static_cast<float>(player.width) / 2 -
-                           static_cast<float>(projectile->width) / 2;
+  projectile->position.x =
+      player.position.x + static_cast<float>(player.width) / 2 - static_cast<float>(projectile->width) / 2;
   projectile->position.y = player.position.y;
   projectilesPlayer.push_back(projectile);
 }
@@ -163,18 +275,47 @@ void SceneMain::updatePlayerProjectiles(float time) {
       it = projectilesPlayer.erase(it);
       // SDL_Log("Player projectile removed");
     } else {
-      ++it;
+      bool hit = false;  // 判断是否击中敌机
+      for (auto &enemy : enemies) {
+        // 敌机矩形
+        SDL_Rect enemyRect = {
+            static_cast<int>(enemy->position.x),
+            static_cast<int>(enemy->position.y),
+            enemy->width,
+            enemy->height,
+        };
+        // 玩家子弹矩形
+        SDL_Rect projectileRect = {
+            static_cast<int>(projectile->position.x),
+            static_cast<int>(projectile->position.y),
+            projectile->width,
+            projectile->height,
+        };
+        if (SDL_HasIntersection(&enemyRect, &projectileRect)) {
+          hit = true;  // 检测到碰撞
+          enemy->currentHealth -= projectile->damage;
+          delete projectile;
+          it = projectilesPlayer.erase(it);
+          break;
+        }
+      }
+      // 没有击中敌机，就检测下一个子弹
+      if (!hit) {
+        ++it;
+      }
     }
   }
 }
 
 void SceneMain::renderPlayerProjectiles() {
   for (auto projectile : projectilesPlayer) {
-    SDL_Rect projectileRect = {static_cast<int>(projectile->position.x),
-                               static_cast<int>(projectile->position.y),
-                               projectile->width, projectile->height};
-    SDL_RenderCopy(game.getRenderer(), projectile->texture, NULL,
-                   &projectileRect);
+    SDL_Rect projectileRect = {
+        static_cast<int>(projectile->position.x),
+        static_cast<int>(projectile->position.y),
+        projectile->width,
+        projectile->height,
+    };
+    SDL_RenderCopy(game.getRenderer(), projectile->texture, NULL, &projectileRect);
   }
 }
 
@@ -186,23 +327,325 @@ void SceneMain::spawnEnemy() {
   }
 
   Enemy *enemy = new Enemy(enemyTempalte);
-  enemy->position.x =
-      dis(gen) * static_cast<float>(game.getWindowWidth() - enemy->width);
+  enemy->position.x = dis(gen) * static_cast<float>(game.getWindowWidth() - enemy->width);
   enemy->position.y = static_cast<float>(-enemy->height);
   enemies.push_back(enemy);
 }
 
 /* 更新敌机 */
 void SceneMain::updateEnemies(float time) {
+  auto currentTime = SDL_GetTicks();
+
   for (auto it = enemies.begin(); it != enemies.end();) {
     auto enemy = *it;
     enemy->position.y += enemy->speed * time;
     if (enemy->position.y > static_cast<float>(game.getWindowHeight())) {
       delete enemy;
       it = enemies.erase(it);
-      SDL_Log("Enemy removed");
+      // SDL_Log("Enemy removed");
+    } else {
+      if (currentTime - enemy->lastTime > enemy->coolDown && !isDead) {
+        shootEnemy(enemy);
+        enemy->lastTime = currentTime;
+      }
+      /*
+       * 这里单独增加一个敌机的生命值判断，是为了添加爆炸特效。
+       * 把敌机和玩家的碰撞检测也放到这里（复用敌机的循环），
+       * 当敌机与玩家碰撞时，敌机直接被破坏，玩家生命值减一
+       */
+      // 玩家矩形
+      SDL_Rect playerRect = {
+          static_cast<int>(player.position.x),
+          static_cast<int>(player.position.y),
+          player.width,
+          player.height,
+      };
+      // 敌机矩形
+      SDL_Rect enemyRect = {
+          static_cast<int>(enemy->position.x),
+          static_cast<int>(enemy->position.y),
+          enemy->width,
+          enemy->height,
+      };
+      // 玩家未死亡的前提下进行判断（可能会产生 Bug）
+      if (!isDead && SDL_HasIntersection(&playerRect, &enemyRect)) {
+        player.currentHealth -= 1;  // 玩家生命值减一
+        // SDL_Log("Player current health: %d", player.currentHealth);
+        enemy->currentHealth = 0;
+      }
+      if (enemy->currentHealth <= 0) {
+        enemyExplode(enemy);  // 引爆敌机
+        it = enemies.erase(it);
+        // SDL_Log("Enemy destiyed");
+      } else {
+        ++it;
+      }
+    }
+  }
+}
+
+/* 渲染敌机 */
+void SceneMain::renderEnemies() {
+  for (auto enemy : enemies) {
+    SDL_Rect enemyRect = {
+        static_cast<int>(enemy->position.x),
+        static_cast<int>(enemy->position.y),
+        enemy->width,
+        enemy->height,
+    };
+    SDL_RenderCopy(game.getRenderer(), enemy->texture, NULL, &enemyRect);
+  }
+}
+
+/* 引爆敌机 */
+void SceneMain::enemyExplode(Enemy *enemy) {
+  // 创建爆炸
+  auto currentTime = SDL_GetTicks();
+  Explosion *explosion = new Explosion(explosionTemplate);
+  explosion->position.x = enemy->position.x + static_cast<float>(enemy->width - explosion->width) / 2;
+  explosion->position.y = enemy->position.y + static_cast<float>(enemy->height - explosion->height) / 2;
+  explosion->startTime = currentTime;
+  explosions.push_back(explosion);
+
+  // 掉落物品
+  dropItem(enemy);
+
+  delete enemy;
+}
+
+/* 敌机射击逻辑 */
+void SceneMain::shootEnemy(Enemy *enemy) {
+  // 发射子弹逻辑实现：发射的时候就在堆内存上创建一个玩家子弹实例
+  ProjectileEnemy *projectile = new ProjectileEnemy(
+      projectileEnemyTemplate);  // 在堆上创建一个新对象，内容复制自 projectileEnemyTemplate（浅拷贝）
+  projectile->position.x = enemy->position.x + static_cast<float>(enemy->width - projectile->width) / 2;
+  projectile->position.y = enemy->position.y + static_cast<float>(enemy->height - projectile->height) / 2;
+  projectile->direction = getDirection(enemy);
+  projectilesEnemy.push_back(projectile);
+}
+
+/* 计算敌机子弹方向 */
+SDL_FPoint SceneMain::getDirection(Enemy *enemy) {
+  // 向量 x = player_mid_x - enemy_mid_x
+  float x = (player.position.x + static_cast<float>(player.width) / 2) -
+      (enemy->position.x + static_cast<float>(enemy->width) / 2);
+  // 向量 y = player_mid_y - enemy_mid_y
+  float y = (player.position.y + static_cast<float>(player.height) / 2) -
+      (enemy->position.y + static_cast<float>(enemy->height) / 2);
+  // 归一化：计算方向余弦
+  float length = sqrt(x * x + y * y);
+  x /= length;
+  y /= length;
+  return SDL_FPoint{x, y};
+}
+
+/* 更新敌机子弹 */
+void SceneMain::updateEnemyProjectiles(float time) {
+  int margin = 32;
+
+  for (auto it = projectilesEnemy.begin(); it != projectilesEnemy.end();) {
+    auto projectile = *it;
+    projectile->position.x += projectile->speed * projectile->direction.x * time;
+    projectile->position.y += projectile->speed * projectile->direction.y * time;
+
+    // 检查子弹是否超出屏幕（超出就销毁）
+    if (projectile->position.y > static_cast<float>(game.getWindowHeight() + margin) ||  // 超出屏幕正下方
+        projectile->position.y < -static_cast<float>(margin) ||                          // 超出屏幕正上方
+        projectile->position.x > static_cast<float>(game.getWindowWidth() + margin) ||   // 超出屏幕右方
+        projectile->position.x < -static_cast<float>(margin)                             // 超出屏幕左方
+    ) {
+      delete projectile;
+      it = projectilesEnemy.erase(it);
+      // SDL_Log("Enemy projectile removed");
+    } else {
+      // 玩家矩形
+      SDL_Rect playerRect = {
+          static_cast<int>(player.position.x),
+          static_cast<int>(player.position.y),
+          player.width,
+          player.height,
+      };
+      // 敌机子弹矩形
+      SDL_Rect projectileRect = {
+          static_cast<int>(projectile->position.x),
+          static_cast<int>(projectile->position.y),
+          projectile->width,
+          projectile->height,
+      };
+      // 碰撞检测
+      if (SDL_HasIntersection(&playerRect, &projectileRect) && !isDead) {
+        player.currentHealth -= projectile->damage;
+        delete projectile;
+        it = projectilesEnemy.erase(it);
+      } else {
+        ++it;
+      }
+    }
+  }
+}
+
+/* 渲染敌机的子弹 */
+void SceneMain::renderEnemyProjectiles() {
+  for (auto projectile : projectilesEnemy) {
+    SDL_Rect projectileRect = {
+        static_cast<int>(projectile->position.x),
+        static_cast<int>(projectile->position.y),
+        projectile->width,
+        projectile->height,
+    };
+
+    // 角度计算
+    double angle = static_cast<double>(atan2(projectile->direction.y, projectile->direction.x)) * 180 * M_PI - 90;
+    // 扩展渲染：调整敌机子弹角度
+    SDL_RenderCopyEx(game.getRenderer(), projectile->texture, NULL, &projectileRect, angle, NULL, SDL_FLIP_NONE);
+  }
+}
+
+/* 爆炸特效更新 */
+void SceneMain::updateExplosions(float time) {
+  auto currentTime = SDL_GetTicks();
+  for (auto it = explosions.begin(); it != explosions.end();) {
+    auto explosion = *it;
+    /*
+     * 获取爆炸的当前帧：
+     * Δt = (当前时间 - 爆炸开始时间) / 1000 => 单位：s
+     * 当前帧 = Δt * FPS
+     */
+    explosion->currentFrame = (currentTime - explosion->startTime) * explosion->FPS / 1000;
+    // 如果当前帧 >= 设定的总帧数，说明爆炸已经展示完了
+    if (explosion->currentFrame >= explosion->totalFrame) {
+      delete explosion;
+      it = explosions.erase(it);
     } else {
       ++it;
     }
+  }
+}
+
+/* 渲染爆炸特效  */
+void SceneMain::renderExplosions() {
+  for (auto explosion : explosions) {
+    /*
+     * 爆炸纹理图集是横向排列的：
+     * [帧0][帧1][帧2][帧3][帧4][帧5][帧6][帧7]
+     */
+
+    /*
+     * src.x = currentFrame * width：选择第几帧（水平方向偏移）
+     * src.y = 0：所有帧都在同一行（垂直方向），所以 y=0
+     * src.width/height：每一帧的尺寸
+     */
+    // 从纹理图片的哪个位置开始裁剪（源区域），其坐标是纹理内部的像素坐标
+    SDL_Rect src = {
+        explosion->currentFrame * explosion->width,
+        0,
+        explosion->width,
+        explosion->height,
+    };
+    // 裁剪出来的内容画到屏幕的哪个位置（目标区域），其坐标是屏幕坐标
+    SDL_Rect dist = {
+        static_cast<int>(explosion->position.x),
+        static_cast<int>(explosion->position.y),
+        explosion->width,
+        explosion->height,
+    };
+    SDL_RenderCopy(game.getRenderer(), explosion->texture, &src, &dist);
+  }
+}
+
+/* 掉落物品 */
+void SceneMain::dropItem(Enemy *enemy) {
+  auto item = new Item(itemLifeTemplate);
+  item->position.x = enemy->position.x + static_cast<float>(enemy->width - item->width) / 2;
+  item->position.y = enemy->position.y + static_cast<float>(enemy->height - item->height) / 2;
+
+  // 设定掉落物起始运动方向
+  float angle = dis(gen) * 2 * static_cast<float>(M_PI);
+  item->direction.x = cos(angle);
+  item->direction.y = sin(angle);
+
+  items.push_back(item);
+}
+
+/* 玩家获得物品 */
+void SceneMain::playerGetItem(Item *item) {
+  if (item->type == ItemType::Life && player.currentHealth < player.maxHealth) {
+    player.currentHealth += 1;
+    SDL_Log("Player current health: %d", player.currentHealth);
+  }
+}
+
+/* 更新物品 */
+void SceneMain::updateItems(float time) {
+  for (auto it = items.begin(); it != items.end();) {
+    auto item = *it;
+
+    // 更新位置
+    item->position.x += item->direction.x * static_cast<float>(item->speed) * time;
+    item->position.y += item->direction.y * static_cast<float>(item->speed) * time;
+
+    // 处理屏幕边缘反弹，前提：反弹次数 > 0
+    if (item->bounceCount > 0) {
+      // x 方向反向条件
+      if (item->position.x < 0 ||
+          (item->position.x + static_cast<float>(item->width) > static_cast<float>(game.getWindowWidth()))) {
+        item->direction.x = -item->direction.x;
+        --item->bounceCount;
+      }
+      // y 方向反向条件
+      if (item->position.y < 0 ||
+          (item->position.y + static_cast<float>(item->width) > static_cast<float>(game.getWindowHeight()))) {
+        item->direction.y = -item->direction.y;
+        --item->bounceCount;
+      }
+    }
+
+    // 检查物品是否超出屏幕（超出就销毁）
+    if (item->position.y > static_cast<float>(game.getWindowHeight()) ||  // 超出屏幕正下方
+        item->position.y < 0 ||                                           // 超出屏幕正上方
+        item->position.x > static_cast<float>(game.getWindowWidth()) ||   // 超出屏幕右方
+        item->position.x < 0                                              // 超出屏幕左方
+    ) {
+      delete item;
+      it = items.erase(it);
+    }
+    // 碰撞检测
+    else {
+      // 掉落物矩形
+      SDL_Rect itemRect = {
+          static_cast<int>(item->position.x),
+          static_cast<int>(item->position.y),
+          item->width,
+          item->height,
+      };
+      // 玩家矩形
+      SDL_Rect playerRect = {
+          static_cast<int>(player.position.x),
+          static_cast<int>(player.position.y),
+          player.width,
+          player.height,
+      };
+      if (SDL_HasIntersection(&itemRect, &playerRect)) {
+        playerGetItem(item);  // 玩家获得物品
+        delete item;
+        it = items.erase(it);
+      } else {
+        ++it;
+      }
+    }
+  }
+}
+
+/* 渲染物品 */
+void SceneMain::renderItems() {
+  for (auto item : items) {
+    SDL_Rect itemRect = {
+        static_cast<int>(item->position.x),
+        static_cast<int>(item->position.y),
+        item->width,
+        item->height,
+    };
+
+    SDL_RenderCopy(game.getRenderer(), item->texture, NULL, &itemRect);
   }
 }
