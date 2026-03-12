@@ -1,5 +1,40 @@
 # 1. 飞船大作战
 
+## 1.1 准备工作
+
+对于 Windows 用户（确保安装了 MSVC 编译器），将 `3rdparty` 目录下的动态库添加到环境变量 Path 中：
+
+```shell
+your_path\3rdparty\SDL2-2.32.10\lib\x64
+your_path\3rdparty\SDL2_image-2.8.4\lib\x64
+your_path\3rdparty\SDL2_image-2.8.4\lib\x64\optional
+your_path\3rdparty\SDL2_mixer-2.8.1\lib\x64
+your_path\3rdparty\SDL2_mixer-2.8.1\lib\x64\optional
+your_path\3rdparty\SDL2_ttf-2.24.0\lib\x64
+```
+
+对于 Linux 或者 Mac 用户，请自行搜索通过包管理器 SDL2 的安装方法，不同包管理器的安装方式不同。
+
+## 1.2 编译
+
+- 构建：
+
+```shell
+cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl
+```
+
+- 编译：
+
+```shell
+cmake --build build -j10
+```
+
+- 执行：
+
+```shell
+.\build\bin\my_program.exe
+```
+
 ---
 
 # 2. 项目结构

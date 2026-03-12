@@ -4,10 +4,13 @@
 #include "Scene.h"
 #include "Object.h"
 
+#include <SDL_mixer.h>
 #include <SDL_rect.h>
 
 #include <list>
 #include <random>
+#include <string>
+#include <unordered_map>
 
 #pragma once
 
@@ -16,6 +19,7 @@ class SceneMain : public Scene {
   Game &game;
   Player player;
   bool isDead = false;  // 玩家是否死亡
+  Mix_Music *bgm;
 
  private:
   // 模板在栈上创建，玩家就一个，自然不需要模板
@@ -27,11 +31,12 @@ class SceneMain : public Scene {
   Item itemLifeTemplate;                      // 掉落物模板：血包
 
   // 容器
-  std::list<ProjectilePlayer *> projectilesPlayer;  // 容器：玩家子弹
-  std::list<Enemy *> enemies;                       // 容器：敌机
-  std::list<ProjectileEnemy *> projectilesEnemy;    // 容器：敌机子弹
-  std::list<Explosion *> explosions;                // 容器：爆炸特效
-  std::pmr::list<Item *> items;                     // 容器：掉落物
+  std::list<ProjectilePlayer *> projectilesPlayer;      // 容器：玩家子弹
+  std::list<Enemy *> enemies;                           // 容器：敌机
+  std::list<ProjectileEnemy *> projectilesEnemy;        // 容器：敌机子弹
+  std::list<Explosion *> explosions;                    // 容器：爆炸特效
+  std::list<Item *> items;                              // 容器：掉落物
+  std::unordered_map<std::string, Mix_Chunk *> sounds;  // 容器：音效
 
  private:
   std::mt19937 gen;                           // 随机数生成器

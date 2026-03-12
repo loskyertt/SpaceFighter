@@ -10,16 +10,13 @@ int main(int argc, char *argv[]) {
     return 1;
   }
   // 创建窗口
-  SDL_Window *window =
-      SDL_CreateWindow("Space Fighter", 100, 100, 800, 600, SDL_WINDOW_SHOWN);
+  SDL_Window *window = SDL_CreateWindow("Space Fighter", 100, 100, 800, 600, SDL_WINDOW_SHOWN);
   // 创建渲染器
-  SDL_Renderer *renderer =
-      SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+  SDL_Renderer *renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
 
   // SDL_image 初始化
   if (IMG_Init(IMG_INIT_PNG | IMG_INIT_JPG) != (IMG_INIT_PNG | IMG_INIT_JPG)) {
-    SDL_Log("SDL_image could not initialize! SDL_image Error: %s\n",
-            IMG_GetError());
+    SDL_Log("SDL_image could not initialize! SDL_image Error: %s\n", IMG_GetError());
     return 1;
   }
   // 加载图片
@@ -27,20 +24,17 @@ int main(int argc, char *argv[]) {
 
   // SDL_mixer 初始化
   if (Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048) < 0) {
-    SDL_Log("SDL_mixer could not initialize! SDL_mixer Error: %s\n",
-            Mix_GetError());
+    SDL_Log("SDL_mixer could not initialize! SDL_mixer Error: %s\n", Mix_GetError());
     return 1;
   }
   // 加载音乐
-  Mix_Music *music =
-      Mix_LoadMUS("assets/music/03_Racing_Through_Asteroids_Loop.ogg");
+  Mix_Music *music = Mix_LoadMUS("assets/music/03_Racing_Through_Asteroids_Loop.ogg");
   // 播放音乐
   Mix_PlayMusic(music, -1);  // 循环播放
 
   // SDL_ttf 初始化
   if (TTF_Init() == -1) {
-    SDL_Log("SDL_ttf could not initialize! SDL_ttf Error: %s\n",
-            TTF_GetError());
+    SDL_Log("SDL_ttf could not initialize! SDL_ttf Error: %s\n", TTF_GetError());
     return 1;
   }
   // 加载字体

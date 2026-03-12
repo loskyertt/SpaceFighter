@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Object.h"
 #include "Scene.h"
 
 #include <SDL_events.h>
@@ -12,6 +13,9 @@ class Game {
   bool isRunning = true;
   SDL_Window *window = nullptr;
   SDL_Renderer *renderer = nullptr;
+
+  Background nearStars;
+  Background farStars;
 
  private:
   int windowWidth = 600;
@@ -38,6 +42,8 @@ class Game {
   void handleEvent(SDL_Event *event);  // 事件处理
   void update(float time);             // 逻辑更新
   void render();                       // 渲染绘制
+  void backgroundUpdate(float time);   // 背景更新
+  void renderBackground();             // 渲染背景
 
   /* 提供获得私有属性的外部接口 */
  public:

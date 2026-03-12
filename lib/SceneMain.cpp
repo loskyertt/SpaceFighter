@@ -5,6 +5,7 @@
 #include <SDL_image.h>
 #include <SDL_keyboard.h>
 #include <SDL_log.h>
+#include <SDL_mixer.h>
 #include <SDL_rect.h>
 #include <SDL_render.h>
 #include <SDL_scancode.h>
@@ -20,6 +21,21 @@ SceneMain::SceneMain() : game(Game::getInstance()) {}
 SceneMain::~SceneMain() {}
 
 void SceneMain::init() {
+  // 读取并播放音乐资源
+  bgm = Mix_LoadMUS("assets/music/03_Racing_Through_Asteroids_Loop.ogg");
+  if (!bgm) {
+    SDL_LogError(SDL_LOG_CATEGORY_ERROR, "Failed to load music: %s\n", Mix_GetError());
+  }
+  Mix_PlayMusic(bgm, -1);
+
+  // 读取音效资源
+  sounds["player_shoot"] = Mix_LoadWAV("assets/sound/laser_shoot4.wav");
+  sounds["enemy_shoot"] = Mix_LoadWAV("assets/sound/xs_laser.wav");
+  sounds["player_explode"] = Mix_LoadWAV("assets/sound/explosion1.wav");
+  sounds["enemy_explode"] = Mix_LoadWAV("assets/sound/explosion3.wav");
+  sounds["hit"] = Mix_LoadWAV("assets/sound/eff11.wav");
+  sounds["get_item"] = Mix_LoadWAV("assets/sound/eff5.wav");
+
   // 始化敌机生成的随机数
   std::random_device rd;
   gen = std::mt19937(rd());
@@ -110,6 +126,14 @@ void SceneMain::render() {
 }
 
 void SceneMain::clean() {
+  // 清理音效容器
+  for (auto sound : sounds) {
+    if (sound.second != nullptr) {
+      Mix_FreeChunk(sound.second);
+    }
+  }
+  sounds.clear();
+
   // 清理玩家子弹容器
   for (auto &projectile : projectilesPlayer) {
     if (projectile != nullptr) {
@@ -168,6 +192,12 @@ void SceneMain::clean() {
   }
   if (itemLifeTemplate.texture != nullptr) {
     SDL_DestroyTexture(itemLifeTemplate.texture);
+  }
+
+  // 清理音乐资源
+  if (bgm != nullptr) {
+    Mix_HaltMusic();     // 先停止播放
+    Mix_FreeMusic(bgm);  // 再释放
   }
 }
 
@@ -228,11 +258,16 @@ void SceneMain::updatePlayer(float time) {
     // TODO: Game over
     auto currentTime = SDL_GetTicks();
     isDead = true;
+
+    // 玩家爆炸
     Explosion *explosion = new Explosion(explosionTemplate);
     explosion->position.x = player.position.x + static_cast<float>(player.width - explosion->width) / 2;
     explosion->position.y = player.position.y + static_cast<float>(player.height - explosion->height) / 2;
     explosion->startTime = currentTime;
     explosions.push_back(explosion);
+
+    // 玩家爆炸的音效
+    Mix_PlayChannel(0, sounds["player_explode"], 0);
     return;
   }
 }
@@ -260,6 +295,13 @@ void SceneMain::shootPlayer() {
       player.position.x + static_cast<float>(player.width) / 2 - static_cast<float>(projectile->width) / 2;
   projectile->position.y = player.position.y;
   projectilesPlayer.push_back(projectile);
+
+  /*
+   * 参数：
+   * channel：-1 表示由系统选择空闲通道，这里手动指定 0 通道
+   */
+  // 玩家发射子弹的音效
+  Mix_PlayChannel(0, sounds["player_shoot"], 0);
 }
 
 void SceneMain::updatePlayerProjectiles(float time) {
@@ -292,10 +334,11 @@ void SceneMain::updatePlayerProjectiles(float time) {
             projectile->height,
         };
         if (SDL_HasIntersection(&enemyRect, &projectileRect)) {
-          hit = true;  // 检测到碰撞
+          hit = true;                             // 检测到碰撞
           enemy->currentHealth -= projectile->damage;
           delete projectile;
           it = projectilesPlayer.erase(it);
+          Mix_PlayChannel(-1, sounds["hit"], 0);  // 命中的音效
           break;
         }
       }
@@ -407,8 +450,13 @@ void SceneMain::enemyExplode(Enemy *enemy) {
   explosion->startTime = currentTime;
   explosions.push_back(explosion);
 
-  // 掉落物品
-  dropItem(enemy);
+  // 敌机爆炸的音效
+  Mix_PlayChannel(-1, sounds["enemy_explode"], 0);
+
+  // 掉落物品（1/2 的概率）
+  if (dis(gen) < 0.5f) {
+    dropItem(enemy);
+  }
 
   delete enemy;
 }
@@ -422,6 +470,9 @@ void SceneMain::shootEnemy(Enemy *enemy) {
   projectile->position.y = enemy->position.y + static_cast<float>(enemy->height - projectile->height) / 2;
   projectile->direction = getDirection(enemy);
   projectilesEnemy.push_back(projectile);
+
+  // 敌机发射子弹的音效
+  Mix_PlayChannel(-1, sounds["enemy_shoot"], 0);
 }
 
 /* 计算敌机子弹方向 */
@@ -477,6 +528,7 @@ void SceneMain::updateEnemyProjectiles(float time) {
         player.currentHealth -= projectile->damage;
         delete projectile;
         it = projectilesEnemy.erase(it);
+        Mix_PlayChannel(-1, sounds["hit"], 0);  // 命中的音效
       } else {
         ++it;
       }
@@ -573,6 +625,9 @@ void SceneMain::playerGetItem(Item *item) {
     player.currentHealth += 1;
     SDL_Log("Player current health: %d", player.currentHealth);
   }
+
+  // 拾取物品的音效
+  Mix_PlayChannel(-1, sounds["get_item"], 0);
 }
 
 /* 更新物品 */
@@ -581,8 +636,8 @@ void SceneMain::updateItems(float time) {
     auto item = *it;
 
     // 更新位置
-    item->position.x += item->direction.x * static_cast<float>(item->speed) * time;
-    item->position.y += item->direction.y * static_cast<float>(item->speed) * time;
+    item->position.x += item->direction.x * item->speed * time;
+    item->position.y += item->direction.y * item->speed * time;
 
     // 处理屏幕边缘反弹，前提：反弹次数 > 0
     if (item->bounceCount > 0) {
@@ -625,7 +680,7 @@ void SceneMain::updateItems(float time) {
           player.width,
           player.height,
       };
-      if (SDL_HasIntersection(&itemRect, &playerRect)) {
+      if (!isDead && SDL_HasIntersection(&itemRect, &playerRect)) {
         playerGetItem(item);  // 玩家获得物品
         delete item;
         it = items.erase(it);

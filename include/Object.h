@@ -71,7 +71,17 @@ struct Item {
   SDL_FPoint direction = {0, 0};
   int width = 0;
   int height = 0;
-  int speed = 200;
+  float speed = 200.0f;
   int bounceCount = 3;  // 反弹次数
   ItemType type = ItemType::Life;
+};
+
+/* 背景 */
+struct Background {
+  SDL_Texture *texture = nullptr;
+  SDL_FPoint position = {0, 0};
+  float y_offset = 0;
+  int width = 0;
+  int height = 0;
+  float speed = 30.0f;
 };
