@@ -5,7 +5,10 @@ message("CMakeLists.txt for lib directory")
 # - 动态库：gamedll
 add_library(gamedll SHARED
   Game.cpp
+  Scene.cpp
   SceneMain.cpp
+  SceneTitle.cpp
+  SceneEnd.cpp
 )
 
 target_include_directories(gamedll PUBLIC ${PROJECT_SOURCE_DIR}/include)

@@ -1,5 +1,13 @@
+/*
+@File    :   lib\Game.cpp
+@Time    :   2026/03/13 17:12:46
+@Author  :   loskyertt
+@Github  :   https://github.com/loskyertt
+@Desc    :   .....
+*/
+
 #include "Game.h"
-#include "SceneMain.h"
+#include "SceneTitle.h"
 
 #include <SDL.h>
 #include <SDL_events.h>
@@ -8,11 +16,10 @@
 #include <SDL_render.h>
 #include <SDL_stdinc.h>
 #include <SDL_timer.h>
+#include <SDL_ttf.h>
 #include <SDL_video.h>
 #include <SDL_image.h>
 #include <SDL_mixer.h>
-
-#include <cstddef>
 
 Game::Game() {}
 
@@ -26,26 +33,17 @@ Game::~Game() {
   clean();
 }
 
-void Game::run() {
-  while (isRunning) {
-    auto frameStart = SDL_GetTicks();  // 记录开始时刻
-
-    SDL_Event event;
-    handleEvent(&event);
-    update(deltaTime);
-    render();
-
-    auto frameEnd = SDL_GetTicks();  // 记录结束时刻
-    auto diff = frameEnd - frameStart;
-    if (diff < frameTime) {
-      SDL_Delay(frameTime - diff);
-      deltaTime = static_cast<float>(frameTime) / 1000.0f;  // 将 ms 转换为 s
-    } else {
-      deltaTime = static_cast<float>(diff) / 1000.0f;
-    }
-  }
-}
-
+/*
+ * 游戏初始化：
+ * - SDL 初始化
+ * - 创建窗口
+ * - 创建渲染器
+ * - 初始化 SDL_image
+ * - 初始化 SDL_mixer
+ * - 初始化 SDL_ttf
+ * - 初始化背景卷轴
+ * - 创建当前场景
+ */
 void Game::init() {
   frameTime = static_cast<Uint32>(1000 / FPS);
 
@@ -90,28 +88,69 @@ void Game::init() {
   Mix_VolumeMusic(MIX_MAX_VOLUME / 4);  // 设置背景音乐音量
   Mix_Volume(-1, MIX_MAX_VOLUME / 8);   // 设置音效音量
 
+  // 初始化 SDL_ttf
+  if (TTF_Init() == -1) {
+    SDL_LogError(SDL_LOG_CATEGORY_ERROR, "SDL_ttf could not initialize! SDL_ttf Error: %s\n", TTF_GetError());
+  }
+
   // 初始化背景卷轴
   nearStars.texture = IMG_LoadTexture(getRenderer(), "assets/image/Stars-A.png");
-  if (!nearStars.texture) {
-    SDL_LogError(SDL_LOG_CATEGORY_ERROR, "Failed to load nearStars: %s", IMG_GetError());
-  }
   SDL_QueryTexture(nearStars.texture, NULL, NULL, &nearStars.width, &nearStars.height);
+  if (!nearStars.texture) {
+    SDL_LogError(SDL_LOG_CATEGORY_ERROR, "Failed to load nearStars background: %s", IMG_GetError());
+  }
   nearStars.width /= 2;
   nearStars.height /= 2;
+
   farStars.texture = IMG_LoadTexture(getRenderer(), "assets/image/Stars-B.png");
-  if (!farStars.texture) {
-    SDL_LogError(SDL_LOG_CATEGORY_ERROR, "Failed to load nearStars: %s", IMG_GetError());
-  }
   SDL_QueryTexture(farStars.texture, NULL, NULL, &farStars.width, &farStars.height);
+  if (!farStars.texture) {
+    SDL_LogError(SDL_LOG_CATEGORY_ERROR, "Failed to load farStars background: %s", IMG_GetError());
+  }
   farStars.speed = 20.0f;
   farStars.width /= 2;
   farStars.height /= 2;
 
+  // 载入字体
+  titleFont = TTF_OpenFont("assets/font/VonwaonBitmap-16px.ttf", 64);
+  textFont = TTF_OpenFont("assets/font/VonwaonBitmap-16px.ttf", 32);
+  if (!titleFont || !textFont) {
+    SDL_LogError(SDL_LOG_CATEGORY_ERROR, "Failed to load fonts: %s", TTF_GetError());
+  }
+
   // 创建当前场景
-  currentScene = new SceneMain();
-  currentScene->init();
+  // currentScene = new SceneMain();   // 主场景
+  currentScene = new SceneTitle();  // 标题场景
+  currentScene->init();             // 初始化当前场景
 }
 
+/* 游戏运行 */
+void Game::run() {
+  /*
+   * 渲染循环：
+   * 外层 while(isRunning) 循环：主游戏循环，持续运行直到程序退出。
+   * 内层 handleEvent(&event) 循环：用于处理所有待处理的SDL事件（如键盘、鼠标、窗口关闭等）。
+   */
+  while (isRunning) {
+    auto frameStart = SDL_GetTicks();  // 记录开始时刻
+
+    SDL_Event event;
+    handleEvent(&event);
+    update(deltaTime);
+    render();
+
+    auto frameEnd = SDL_GetTicks();  // 记录结束时刻
+    auto diff = frameEnd - frameStart;
+    if (diff < frameTime) {
+      SDL_Delay(frameTime - diff);
+      deltaTime = static_cast<float>(frameTime) / 1000.0f;  // 将 ms 转换为 s
+    } else {
+      deltaTime = static_cast<float>(diff) / 1000.0f;
+    }
+  }
+}
+
+/* 清理 */
 void Game::clean() {
   if (currentScene != nullptr) {
     currentScene->clean();
@@ -125,6 +164,13 @@ void Game::clean() {
     SDL_DestroyTexture(farStars.texture);
   }
 
+  if (titleFont != nullptr) {
+    TTF_CloseFont(titleFont);
+  }
+  if (textFont != nullptr) {
+    TTF_CloseFont(textFont);
+  }
+
   // 清理图片资源
   IMG_Quit();
 
@@ -132,11 +178,15 @@ void Game::clean() {
   Mix_CloseAudio();
   Mix_Quit();
 
+  // 清理字体资源
+  TTF_Quit();
+
   SDL_DestroyRenderer(renderer);
   SDL_DestroyWindow(window);
   SDL_Quit();
 }
 
+/* 切换场景 */
 void Game::changeScene(Scene *scene) {
   if (currentScene != nullptr) {
     currentScene->clean();
@@ -146,6 +196,7 @@ void Game::changeScene(Scene *scene) {
   currentScene->init();
 }
 
+/* 事件处理 */
 void Game::handleEvent(SDL_Event *event) {
   while (SDL_PollEvent(event)) {
     if (event->type == SDL_QUIT) {
@@ -156,11 +207,13 @@ void Game::handleEvent(SDL_Event *event) {
   }
 }
 
+/* 逻辑更新 */
 void Game::update(float time) {
   backgroundUpdate(time);
   currentScene->update(time);
 }
 
+/* 渲染绘制 */
 void Game::render() {
   // 清空
   SDL_RenderClear(renderer);
@@ -168,6 +221,7 @@ void Game::render() {
   // 渲染星空背景
   renderBackground();
 
+  // 渲染当前场景
   currentScene->render();
 
   // 显示更新
@@ -216,4 +270,54 @@ void Game::renderBackground() {
       SDL_RenderCopy(getRenderer(), nearStars.texture, NULL, &distRect);
     }
   }
+}
+
+/* 渲染标题或普通文本 */
+SDL_Point Game::renderTextCentered(const std::string &text, float posY, bool isTitle) {
+  SDL_Color color = {255, 255, 255, 255};  // 白色
+
+  SDL_Surface *surface;
+  if (isTitle) {
+    surface = TTF_RenderUTF8_Solid(titleFont, text.c_str(), color);
+  } else {
+    surface = TTF_RenderUTF8_Solid(textFont, text.c_str(), color);
+  }
+
+  SDL_Texture *texture = SDL_CreateTextureFromSurface(getRenderer(), surface);
+  int y = static_cast<int>(static_cast<float>((getWindowHeight() - surface->h)) * posY);
+  SDL_Rect fontRect = {
+      (getWindowWidth() - surface->w) / 2,  // 横坐标为中心
+      y,
+      surface->w,
+      surface->h,
+  };
+  SDL_RenderCopy(getRenderer(), texture, NULL, &fontRect);
+  SDL_FreeSurface(surface);
+  SDL_DestroyTexture(texture);
+
+  return {fontRect.x + fontRect.w, y};
+}
+
+/* 指定位置渲染文字 */
+void Game::renderTextPos(const std::string &text, float posX, float posY) {
+  // SDL_Color color = {255, 255, 255, 255};  // 白色
+
+  // SDL_Surface *surface;
+  // if (isTitle) {
+  //   surface = TTF_RenderUTF8_Solid(titleFont, text.c_str(), color);
+  // } else {
+  //   surface = TTF_RenderUTF8_Solid(textFont, text.c_str(), color);
+  // }
+
+  // SDL_Texture *texture = SDL_CreateTextureFromSurface(getRenderer(), surface);
+  // int y = static_cast<int>(static_cast<float>((getWindowHeight() - surface->h)) * posY);
+  // SDL_Rect fontRect = {
+  //     (getWindowWidth() - surface->w) / 2,  // 横坐标为中心
+  //     y,
+  //     surface->w,
+  //     surface->h,
+  // };
+  // SDL_RenderCopy(getRenderer(), texture, NULL, &fontRect);
+  // SDL_FreeSurface(surface);
+  // SDL_DestroyTexture(texture);
 }

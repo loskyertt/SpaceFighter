@@ -35,6 +35,8 @@ cmake --build build -j10
 .\build\bin\my_program.exe
 ```
 
+如果是在 Visual Studio 中点击“执行”按钮，请把 `assets` 目录复制到 `your_path\SpaceFighter\out\build\x64-debug\bin` 目录下。
+
 ---
 
 # 2. 项目结构
@@ -176,7 +178,7 @@ int main(){
   // 设置控制台为 UTF-8
   SetConsoleOutputCP(CP_UTF8);
   SetConsoleCP(CP_UTF8);
-  
+
   // 其它代码......
 }
 ```

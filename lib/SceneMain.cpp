@@ -1,6 +1,16 @@
+/*
+@File    :   lib\SceneMain.cpp
+@Time    :   2026/03/13 17:13:14
+@Author  :   loskyertt
+@Github  :   https://github.com/loskyertt
+@Desc    :   .....
+*/
+
 #include "SceneMain.h"
-#include "Game.h"
 #include "Object.h"
+#include "Game.h"
+#include "SceneEnd.h"
+#include "SceneTitle.h"
 
 #include <SDL_image.h>
 #include <SDL_keyboard.h>
@@ -10,13 +20,16 @@
 #include <SDL_render.h>
 #include <SDL_scancode.h>
 #include <SDL_stdinc.h>
+#include <SDL_surface.h>
 #include <SDL_timer.h>
+#include <SDL_ttf.h>
 
 #include <cmath>
 #include <cstddef>
 #include <random>
+#include <string>
 
-SceneMain::SceneMain() : game(Game::getInstance()) {}
+SceneMain::SceneMain() {}
 
 SceneMain::~SceneMain() {}
 
@@ -36,11 +49,17 @@ void SceneMain::init() {
   sounds["hit"] = Mix_LoadWAV("assets/sound/eff11.wav");
   sounds["get_item"] = Mix_LoadWAV("assets/sound/eff5.wav");
 
+  // 读取 uiHealth
+  uiHealth = IMG_LoadTexture(game.getRenderer(), "assets/image/Health UI Black.png");
+
+  // 载入分数字体
+  scoreFont = TTF_OpenFont("assets/font/VonwaonBitmap-12px.ttf", 24);  // 选择的字体大小尽量为缩放的倍数
+
   // 始化敌机生成的随机数
   std::random_device rd;
   gen = std::mt19937(rd());
   dis = std::uniform_real_distribution<float>(0.0f, 1.0f);
-  float r = dis(gen);  // 获取随机数
+  // float r = dis(gen);  // 获取随机数
 
   // 玩家属性初始化
   player.texture = IMG_LoadTexture(game.getRenderer(), "assets/image/SpaceShip.png");
@@ -48,7 +67,7 @@ void SceneMain::init() {
                    &player.height);  // 根据 texture 设置宽和高
   player.width /= 4;
   player.height /= 4;
-  player.position.x = static_cast<float>((game.getWindowWidth() - player.width) / 2);
+  player.position.x = static_cast<float>((game.getWindowWidth() - player.width)) / 2;
   player.position.y = static_cast<float>(game.getWindowHeight() - player.height);
 
   // 玩家子弹模板初始化
@@ -99,6 +118,10 @@ void SceneMain::update(float time) {
   updatePlayer(time);
   updateExplosions(time);
   updateItems(time);
+
+  if (isDead) {
+    changeSceneDelayed(time, 3);  // 3s 延迟
+  }
 }
 
 void SceneMain::render() {
@@ -123,6 +146,9 @@ void SceneMain::render() {
 
   // 渲染爆炸特效
   renderExplosions();
+
+  // 渲染 ui
+  renderUI();
 }
 
 void SceneMain::clean() {
@@ -199,9 +225,26 @@ void SceneMain::clean() {
     Mix_HaltMusic();     // 先停止播放
     Mix_FreeMusic(bgm);  // 再释放
   }
+
+  // 清理 uiHealth
+  if (uiHealth != nullptr) {
+    SDL_DestroyTexture(uiHealth);
+  }
+
+  // 清理字体
+  if (scoreFont != nullptr) {
+    TTF_CloseFont(scoreFont);
+  }
 }
 
-void SceneMain::handleEvent(SDL_Event *event) {}
+void SceneMain::handleEvent(SDL_Event *event) {
+  if (event->type == SDL_KEYDOWN) {
+    if (event->key.keysym.scancode == SDL_SCANCODE_ESCAPE) {
+      SceneTitle *sceneTitle = new SceneTitle();
+      game.changeScene(sceneTitle);
+    }
+  }
+}
 
 void SceneMain::keyboardControl(float time) {
   if (isDead) {
@@ -334,7 +377,7 @@ void SceneMain::updatePlayerProjectiles(float time) {
             projectile->height,
         };
         if (SDL_HasIntersection(&enemyRect, &projectileRect)) {
-          hit = true;                             // 检测到碰撞
+          hit = true;  // 检测到碰撞
           enemy->currentHealth -= projectile->damage;
           delete projectile;
           it = projectilesPlayer.erase(it);
@@ -457,6 +500,8 @@ void SceneMain::enemyExplode(Enemy *enemy) {
   if (dis(gen) < 0.5f) {
     dropItem(enemy);
   }
+
+  score += 10;  // 敌机爆炸时，让 score 加 10 分
 
   delete enemy;
 }
@@ -621,9 +666,11 @@ void SceneMain::dropItem(Enemy *enemy) {
 
 /* 玩家获得物品 */
 void SceneMain::playerGetItem(Item *item) {
+  score += 5;  // 获得物品时 +5 分
+
   if (item->type == ItemType::Life && player.currentHealth < player.maxHealth) {
     player.currentHealth += 1;
-    SDL_Log("Player current health: %d", player.currentHealth);
+    // SDL_Log("Player current health: %d", player.currentHealth);
   }
 
   // 拾取物品的音效
@@ -702,5 +749,62 @@ void SceneMain::renderItems() {
     };
 
     SDL_RenderCopy(game.getRenderer(), item->texture, NULL, &itemRect);
+  }
+}
+
+/* 渲染 UI */
+void SceneMain::renderUI() {
+  /* === 渲染血条 === */
+  int x = 10, y = 10;
+  int size = 32;    // width = size, height = size
+  int offset = 40;  // 每个血量 UI 的偏移量
+
+  // 浅色生命值
+  SDL_SetTextureColorMod(uiHealth, 100, 100, 100);  // 比如 r = 当前图片颜色 * (100 / 255)
+  for (int i = 0; i < player.maxHealth; ++i) {
+    SDL_Rect dist = {
+        x + i * offset,
+        y,
+        size,
+        size,
+    };
+    SDL_RenderCopy(game.getRenderer(), uiHealth, NULL, &dist);
+  }
+
+  // 深色生命值
+  SDL_SetTextureColorMod(uiHealth, 255, 255, 255);  // 比如 r = 当前图片颜色 * (255 / 255)
+  for (int i = 0; i < player.currentHealth; ++i) {
+    SDL_Rect dist = {
+        x + i * offset,
+        y,
+        size,
+        size,
+    };
+    SDL_RenderCopy(game.getRenderer(), uiHealth, NULL, &dist);
+  }
+
+  /* === 渲染得分 === */
+  auto text = "SCORE:" + std::to_string(score);
+  SDL_Color textColor = {255, 255, 255, 255};  // 白色
+  SDL_Surface *scoreTextSurface = TTF_RenderUTF8_Solid(scoreFont, text.c_str(), textColor);
+  SDL_Texture *scoreTextTexture = SDL_CreateTextureFromSurface(game.getRenderer(), scoreTextSurface);
+  SDL_Rect scoreTextRect = {
+      game.getWindowWidth() - 10 - scoreTextSurface->w,
+      10,
+      scoreTextSurface->w,
+      scoreTextSurface->h,
+  };
+  SDL_RenderCopy(game.getRenderer(), scoreTextTexture, NULL, &scoreTextRect);
+  SDL_FreeSurface(scoreTextSurface);
+  SDL_DestroyTexture(scoreTextTexture);
+}
+
+/* 延迟更新结束画面 */
+void SceneMain::changeSceneDelayed(float time, float delay) {
+  timerEnd += time;
+  if (timerEnd > delay) {
+    Scene *sceneEnd = new SceneEnd();
+    game.setFinalScore(score);  // 在切换退出场景之前先记录分数
+    game.changeScene(sceneEnd);
   }
 }

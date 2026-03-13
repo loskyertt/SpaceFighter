@@ -3,9 +3,16 @@
 #include <SDL.h>
 #include <SDL_events.h>
 
+// 避免头文件循环引用，这里只做声明，在 Scene.cpp 中 include Game.h
+class Game;
+
 class Scene {
+ protected:
+  Game &game;
+
  public:
-  Scene() = default;
+  Scene();
+
   virtual ~Scene() = default;
   virtual void init() = 0;
   virtual void update(float time) = 0;

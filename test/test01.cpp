@@ -1,3 +1,11 @@
+/*
+@File    :   test\test01.cpp
+@Time    :   2026/03/13 17:13:31
+@Author  :   loskyertt
+@Github  :   https://github.com/loskyertt
+@Desc    :   .....
+*/
+
 #include <SDL.h>
 #include <SDL_image.h>
 #include <SDL_mixer.h>
@@ -44,7 +52,11 @@ int main(int argc, char *argv[]) {
   SDL_Surface *surface = TTF_RenderUTF8_Solid(font, "你好呀", textColor);
   SDL_Texture *textTexture = SDL_CreateTextureFromSurface(renderer, surface);
 
-  // 渲染循环
+  /*
+   * 渲染循环：
+   * 外层 while(true) 循环：主游戏循环，持续运行直到程序退出。
+   * 内层 while (SDL_PollEvent(&event)) 循环：用于处理所有待处理的SDL事件（如键盘、鼠标、窗口关闭等）。
+   */
   while (true) {
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
@@ -55,6 +67,7 @@ int main(int argc, char *argv[]) {
 
     // 清屏
     SDL_RenderClear(renderer);
+
     // 画一个长方形
     SDL_Rect rect = {100, 100, 200, 200};
     SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);  // 设置绘制颜色为红色，用于绘制后面的 SDL_RenderFillRect 填充矩形

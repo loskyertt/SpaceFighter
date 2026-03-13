@@ -1,11 +1,20 @@
+/*
+@File    :   include\SceneMain.h
+@Time    :   2026/03/13 17:13:02
+@Author  :   loskyertt
+@Github  :   https://github.com/loskyertt
+@Desc    :   .....
+*/
+
 #pragma once
 
-#include "Game.h"
 #include "Scene.h"
 #include "Object.h"
 
 #include <SDL_mixer.h>
 #include <SDL_rect.h>
+#include <SDL_render.h>
+#include <SDL_ttf.h>
 
 #include <list>
 #include <random>
@@ -16,14 +25,16 @@
 
 class SceneMain : public Scene {
  private:
-  Game &game;
-  Player player;
-  bool isDead = false;  // 玩家是否死亡
-  Mix_Music *bgm;
+  bool isDead = false;              // 玩家是否死亡
+  Mix_Music *bgm;                   // 背景音乐
+  SDL_Texture *uiHealth = nullptr;  // 玩家生命值图标
+  TTF_Font *scoreFont;              // 分数字体
+  int score = 0;                    // 得分信息
+  float timerEnd = 0.0f;            // 延迟播放结束画面
 
+  /* 模板在栈上创建，可以先把材质文件加载进模板（内存），毕竟 I/O 很费时 */
  private:
-  // 模板在栈上创建，玩家就一个，自然不需要模板
-  // 可以先把材质文件加载进模板（内存），毕竟 I/O 很费时
+  Player player;                              // 玩家就一个，自然不需要设为模板
   ProjectilePlayer projectilePlayerTemplate;  // 模板：用户子弹
   Enemy enemyTempalte;                        // 模板：敌机
   ProjectileEnemy projectileEnemyTemplate;    // 模板：敌机子弹
@@ -46,14 +57,16 @@ class SceneMain : public Scene {
   SceneMain();
   ~SceneMain() override;
 
- public: /* 接口实现 */
+  /* 接口实现 */
+ public:
   void init() override;
   void update(float time) override;
   void render() override;
   void clean() override;
   void handleEvent(SDL_Event *event) override;
 
- public:
+  /* 游戏场景 */
+ private:
   void keyboardControl(float time);  // 键盘逻辑
 
   void updatePlayer(float time);  // 玩家状态更新
@@ -80,4 +93,8 @@ class SceneMain : public Scene {
   void playerGetItem(Item *item);  // 玩家获得物品
   void updateItems(float time);    // 更新物品
   void renderItems();              // 渲染物品
+
+  void renderUI();  // 渲染 UI
+
+  void changeSceneDelayed(float time, float delay);  // 延迟更新结束画面
 };

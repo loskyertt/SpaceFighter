@@ -1,3 +1,11 @@
+/*
+@File    :   include\Object.h
+@Time    :   2026/03/13 17:12:52
+@Author  :   loskyertt
+@Github  :   https://github.com/loskyertt
+@Desc    :   .....
+*/
+
 #pragma once
 
 #include <SDL_rect.h>
