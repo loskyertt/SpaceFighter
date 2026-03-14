@@ -6,17 +6,26 @@
 @Desc    :   .....
 */
 
-#include "SceneEnd.h"
 #include "Game.h"
+#include "SceneMain.h"
+#include "SceneEnd.h"
 
 #include <SDL_events.h>
 #include <SDL_keyboard.h>
+#include <SDL_mixer.h>
 #include <SDL_rect.h>
 #include <SDL_scancode.h>
 
 #include <string>
 
 void SceneEnd::init() {
+  // 载入结束时背景音乐
+  bgm = Mix_LoadMUS("assets/music/06_Battle_in_Space_Intro.ogg");
+  if (!bgm) {
+    SDL_LogError(SDL_LOG_CATEGORY_ERROR, "Failed to load bgm: %s", Mix_GetError());
+  }
+  Mix_PlayMusic(bgm, -1);
+
   // 检查是否启用了 Unicode 文本输入事件：如果启用了文本输入事件，则返回 SDL_TRUE，否则返回 SDL_FALSE
   if (!SDL_IsTextInputActive()) {
     SDL_StartTextInput();  // 启动输入模式
@@ -26,7 +35,12 @@ void SceneEnd::init() {
   }
 }
 
-void SceneEnd::update(float time) {}
+void SceneEnd::update(float time) {
+  blinkTimer -= time;
+  if (blinkTimer < 0) {
+    blinkTimer += 1.0f;
+  }
+}
 
 void SceneEnd::render() {
   if (isTyping) {
@@ -47,18 +61,24 @@ void SceneEnd::handleEvent(SDL_Event *event) {
     if (event->type == SDL_KEYDOWN) {
       // Enter 键：保存退出 -> 切换下一个场景
       if (event->key.keysym.scancode == SDL_SCANCODE_RETURN) {
-        if (name == "") {
-          name += "没有名字的玩家";  // 玩家未输入名字时的 default name
-        }
         isTyping = false;
         SDL_StopTextInput();
+        if (name == "") {
+          name += "无名氏";  // 玩家未输入名字时的 default name
+        }
+        game.inserLeaderBoard(game.getFinalScore(), name);
       }
       if (event->key.keysym.scancode == SDL_SCANCODE_BACKSPACE) {
         removeLastUTF8Char();
       }
     }
   } else {
-    // TODO
+    // J 键：重新开始游戏
+    if (event->type == SDL_KEYDOWN && event->key.keysym.scancode == SDL_SCANCODE_J) {
+      isTyping = false;
+      Scene *sceneMain = new SceneMain();
+      game.changeScene(sceneMain);
+    }
   }
 }
 
@@ -75,13 +95,35 @@ void SceneEnd::randerPhase1() {
 
   if (name != "") {
     SDL_Point textCoordinate = game.renderTextCentered(name, 0.8f, false);
-  }else {
-    game.renderTextCentered("_", 0.8f, false);
+    if (blinkTimer < 0.5f) {
+      game.renderTextPos("_", textCoordinate.x, textCoordinate.y);
+    }
+  } else {
+    if (blinkTimer < 0.5f) {
+      game.renderTextCentered("_", 0.8f, false);
+    }
   }
 }
 
 /* 渲染文字：第二阶段 */
-void SceneEnd::renderPhase2() {}
+void SceneEnd::renderPhase2() {
+  game.renderTextCentered("得分榜", 0.05f, true);
+  float posY = 0.2f * static_cast<float>(game.getWindowHeight());
+  int sequence = 1;  // 排行榜的序列编号
+  for (auto &item : game.getLeaderBoard()) {
+    std::string entryName = std::to_string(sequence) + ". " + item.second;
+    std::string score = std::to_string(item.first);
+    game.renderTextPos(entryName, 100, static_cast<int>(posY));
+    game.renderTextPos(score, 100, static_cast<int>(posY), false);
+
+    posY += 45.0f;
+    ++sequence;
+  }
+
+  if (blinkTimer < 0.5f) {
+    game.renderTextCentered("按 J 键重新开始游戏", 0.9f, false);
+  }
+}
 
 /*
 * 移除字符（需要明白英文字符和中文字符的区别）

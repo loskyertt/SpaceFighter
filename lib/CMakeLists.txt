@@ -1,7 +1,6 @@
 # for each "lib/x.cpp", generate shared library or static library
 message("CMakeLists.txt for lib directory")
 
-# 在这里添加动态库
 # - 动态库：gamedll
 add_library(gamedll SHARED
   Game.cpp

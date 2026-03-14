@@ -65,8 +65,8 @@ void SceneMain::init() {
   player.texture = IMG_LoadTexture(game.getRenderer(), "assets/image/SpaceShip.png");
   SDL_QueryTexture(player.texture, NULL, NULL, &player.width,
                    &player.height);  // 根据 texture 设置宽和高
-  player.width /= 4;
-  player.height /= 4;
+  player.width /= 5;
+  player.height /= 5;
   player.position.x = static_cast<float>((game.getWindowWidth() - player.width)) / 2;
   player.position.y = static_cast<float>(game.getWindowHeight() - player.height);
 
@@ -91,14 +91,14 @@ void SceneMain::init() {
   projectileEnemyTemplate.texture = IMG_LoadTexture(game.getRenderer(), "assets/image/bullet-1.png");
   SDL_QueryTexture(
       projectileEnemyTemplate.texture, NULL, NULL, &projectileEnemyTemplate.width, &projectileEnemyTemplate.height);
-  projectileEnemyTemplate.width /= 4;
-  projectileEnemyTemplate.height /= 4;
+  projectileEnemyTemplate.width /= 3;
+  projectileEnemyTemplate.height /= 3;
 
   // 爆炸特效模板初始化
   explosionTemplate.texture = IMG_LoadTexture(game.getRenderer(), "assets/effect/explosion.png");
   SDL_QueryTexture(explosionTemplate.texture, NULL, NULL, &explosionTemplate.width, &explosionTemplate.height);
   explosionTemplate.totalFrame = explosionTemplate.width / explosionTemplate.height;
-  // explosionTemplate.height /= 4;
+  explosionTemplate.height *= 2;
   explosionTemplate.width = explosionTemplate.height;  // 宽度和高度一样
 
   // 掉落物（血包）模板初始化
@@ -636,8 +636,8 @@ void SceneMain::renderExplosions() {
     SDL_Rect src = {
         explosion->currentFrame * explosion->width,
         0,
-        explosion->width,
-        explosion->height,
+        explosion->width / 2,  // 按原样图片裁剪
+        explosion->height / 2,
     };
     // 裁剪出来的内容画到屏幕的哪个位置（目标区域），其坐标是屏幕坐标
     SDL_Rect dist = {

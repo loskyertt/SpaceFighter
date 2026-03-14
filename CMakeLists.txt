@@ -22,7 +22,7 @@ if(WIN32)
 endif()
 
 # 5. 定义项目 (这会触发编译器探测，从而设置 CMAKE_SIZEOF_VOID_P)
-project(YOUR_PROJECT_NAME VERSION 0.0.1 LANGUAGES C CXX)
+project(SpaceFighter VERSION 0.0.1 LANGUAGES C CXX)
 
 # ---------------------------------------------------------
 # 6. 架构检测逻辑 (放在 project 之后)
@@ -88,6 +88,6 @@ add_subdirectory(./lib)
 
 add_subdirectory(./src)
 
-add_subdirectory(./test)
+# add_subdirectory(./test)
 
 # add_subdirectory(./example)

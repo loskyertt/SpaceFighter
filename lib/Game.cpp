@@ -14,12 +14,16 @@
 #include <SDL_log.h>
 #include <SDL_rect.h>
 #include <SDL_render.h>
+#include <SDL_scancode.h>
 #include <SDL_stdinc.h>
 #include <SDL_timer.h>
 #include <SDL_ttf.h>
 #include <SDL_video.h>
 #include <SDL_image.h>
 #include <SDL_mixer.h>
+
+#include <fstream>
+#include <string>
 
 Game::Game() {}
 
@@ -67,6 +71,9 @@ void Game::init() {
     SDL_LogError(SDL_LOG_CATEGORY_ERROR, "Renderer could not be created! SDL_Error: %s\n", SDL_GetError());
     isRunning = false;
   }
+
+  // 设计逻辑分辨率
+  SDL_RenderSetLogicalSize(renderer, windowWidth, windowHeight);
 
   // 初始化 SDL_image
   if (IMG_Init(IMG_INIT_PNG) != IMG_INIT_PNG) {
@@ -117,6 +124,9 @@ void Game::init() {
   if (!titleFont || !textFont) {
     SDL_LogError(SDL_LOG_CATEGORY_ERROR, "Failed to load fonts: %s", TTF_GetError());
   }
+
+  // 载入得分
+  loadData();
 
   // 创建当前场景
   // currentScene = new SceneMain();   // 主场景
@@ -200,7 +210,18 @@ void Game::changeScene(Scene *scene) {
 void Game::handleEvent(SDL_Event *event) {
   while (SDL_PollEvent(event)) {
     if (event->type == SDL_QUIT) {
+      saveData();
+      SDL_Log("Save data");
       isRunning = false;
+    }
+
+    if (event->key.keysym.scancode == SDL_SCANCODE_F4) {
+      isFullScreen = !isFullScreen;
+      if (isFullScreen) {
+        SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN);
+      } else {
+        SDL_SetWindowFullscreen(window, 0);
+      }
     }
 
     currentScene->handleEvent(event);
@@ -272,7 +293,11 @@ void Game::renderBackground() {
   }
 }
 
-/* 渲染标题或普通文本 */
+/* 渲染标题或普通文本
+ * - text: 要渲染的文本
+ * - posY: 相对位置，即比例系数，范围 (0, 1)
+ * - isTitle: 是否是标题
+*/
 SDL_Point Game::renderTextCentered(const std::string &text, float posY, bool isTitle) {
   SDL_Color color = {255, 255, 255, 255};  // 白色
 
@@ -299,25 +324,63 @@ SDL_Point Game::renderTextCentered(const std::string &text, float posY, bool isT
 }
 
 /* 指定位置渲染文字 */
-void Game::renderTextPos(const std::string &text, float posX, float posY) {
-  // SDL_Color color = {255, 255, 255, 255};  // 白色
+void Game::renderTextPos(const std::string &text, int posX, int posY, bool isLeft) {
+  SDL_Color color = {255, 255, 255, 255};  // 白色
+  SDL_Surface *surface = TTF_RenderUTF8_Solid(textFont, text.c_str(), color);
+  SDL_Texture *texture = SDL_CreateTextureFromSurface(getRenderer(), surface);
+  SDL_Rect fontRect;
+  if (isLeft) {
+    fontRect = {
+        posX,  // 横坐标为中心
+        posY,
+        surface->w,
+        surface->h,
+    };
+  } else {
+    fontRect = {
+        getWindowWidth() - posX - surface->w,  // 横坐标为中心
+        posY,
+        surface->w,
+        surface->h,
+    };
+  }
+  SDL_RenderCopy(getRenderer(), texture, NULL, &fontRect);
+  SDL_FreeSurface(surface);
+  SDL_DestroyTexture(texture);
+}
 
-  // SDL_Surface *surface;
-  // if (isTitle) {
-  //   surface = TTF_RenderUTF8_Solid(titleFont, text.c_str(), color);
-  // } else {
-  //   surface = TTF_RenderUTF8_Solid(textFont, text.c_str(), color);
-  // }
+/* 插入玩家得分情况 */
+void Game::inserLeaderBoard(const int &score, const std::string &name) {
+  leaderBoard.insert({score, name});
+  if (leaderBoard.size() > 8) {
+    leaderBoard.erase(--leaderBoard.end());
+  }
+}
 
-  // SDL_Texture *texture = SDL_CreateTextureFromSurface(getRenderer(), surface);
-  // int y = static_cast<int>(static_cast<float>((getWindowHeight() - surface->h)) * posY);
-  // SDL_Rect fontRect = {
-  //     (getWindowWidth() - surface->w) / 2,  // 横坐标为中心
-  //     y,
-  //     surface->w,
-  //     surface->h,
-  // };
-  // SDL_RenderCopy(getRenderer(), texture, NULL, &fontRect);
-  // SDL_FreeSurface(surface);
-  // SDL_DestroyTexture(texture);
+/* 保存排行榜数据 */
+void Game::saveData() {
+  std::ofstream file("data/save.dat");
+  if (!file.is_open()) {
+    SDL_LogError(SDL_LOG_CATEGORY_ERROR, "Failed to open file!");
+    return;
+  }
+  for (const auto &item : leaderBoard) {
+    file << item.first << " " << item.second << std::endl;
+  }
+}
+
+/* 载入排行榜数据 */
+void Game::loadData() {
+  std::ifstream file("data/save.dat");
+  if (!file.is_open()) {
+    SDL_Log("Failed to open file!");
+    return;
+  }
+
+  leaderBoard.clear();
+  int score;
+  std::string name;
+  while (file >> score >> name) {
+    inserLeaderBoard(score, name);
+  }
 }

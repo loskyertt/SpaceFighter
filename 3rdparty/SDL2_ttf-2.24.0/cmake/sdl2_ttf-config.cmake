@@ -7,7 +7,8 @@ set_package_properties(SDL2_ttf PROPERTIES
     DESCRIPTION "Support for TrueType (.ttf) font files with Simple Directmedia Layer"
 )
 
-cmake_minimum_required(VERSION 3.0...3.5)
+# cmake_minimum_required(VERSION 3.0...3.5)
+cmake_minimum_required(VERSION 3.10...3.25)
 
 set(SDL2_ttf_FOUND TRUE)
 

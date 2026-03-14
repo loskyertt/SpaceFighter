@@ -23,6 +23,8 @@ your_path\3rdparty\SDL2_ttf-2.24.0\lib\x64
 cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl
 ```
 
+> 如果构建类型设为 `Release`，在运行游戏时，就不会显示控制台窗口。
+
 - 编译：
 
 ```shell
