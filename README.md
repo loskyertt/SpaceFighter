@@ -39,69 +39,55 @@ cmake --build build -j10
 
 如果是在 Visual Studio 中点击“执行”按钮，请把 `assets` 目录复制到 `your_path\SpaceFighter\out\build\x64-debug\bin` 目录下。
 
+## 1.3 致谢
+
+游戏素材来自于以下作者，均为 CC0 1.0 许可/无要求（你可以随意使用而无需署名），感谢他们的贡献：
+
+- 图片素材：
+  - https://anim86.itch.io/space-shoter-starter-pack
+  - https://doshrosity.itch.io/32x32-health-ui
+
+- 音效素材
+  - https://enprimer.itch.io/spaceship-sound-effects-pack
+
+- 音乐素材
+  - https://leohpaz.itch.io/space-music-pack
+
+- 字体素材
+  - https://timothyqiu.itch.io/vonwaon-bitmap
+
+- 爆炸特效
+  - https://ansimuz.itch.io/explosion-animations-pack
+
 ---
 
 # 2. 项目结构
 
 ```bash
-.
-├── CMakeLists.txt
-├── LICENSE
-├── README.md
-├── cmake_build_debug.sh
-├── example  # 代码示例存放处
-│   ├── CMakeLists.txt
-│   └── example01.cpp
-├── format_count.sh
-├── include  # 头文件存放处
-│   └── math_utils.h
-├── lib  # 库文件存放处
-│   ├── CMakeLists.txt
-│   └── math_utils.cpp
-├── src  # 源文件存放处
-│   ├── CMakeLists.txt
-│   └── main.cpp
-└── test  # 测试案例存放处
-    ├── CMakeLists.txt
-    ├── test01.cpp
-    └── test02.cpp
+project_root/
+├── CMakeLists.txt          # 顶层构建配置（现代CMake范式）
+├── src/                    # 源代码目录
+│   ├── main.cpp            # 程序入口
+│   ├── core/               # 核心业务模块
+│   │   ├── include/        # 对外公开接口头文件
+│   │   └── impl/           # 内部实现源文件和内部私有头文件（外部不需要知道的细节）
+│   └── utils/              # 通用工具模块
+├── include/                # 项目级公共头文件（供外部库或应用程序集成）
+├── tests/                  # 测试代码
+│   ├── unit/               # 单元测试
+│   └── integration/        # 集成测试
+├── cmake/                  # 自定义CMake模块（如FindXXX.cmake）
+├── third_party/            # 第三方依赖（或用包管理器）
+├── scripts/                # 自动化脚本（构建、静态检查、部署）
+├── docs/                   # 技术文档与架构说明
+└── conanfile.txt 或 vcpkg.json # 依赖声明文件
 ```
 
 ---
 
-# 3. CMake 优化指南
+# 3. 构建
 
-## 3.1 最小化 GLOB 操作
-
-~~`file(GLOB ...)`~~
-
-推荐：
-```cmake
-set(SOURCES
-    main.cpp
-    utiles/utiles.cpp
-    ...
-)
-
-add_executable(myApp ${SOURCES})
-```
-
->> - **CMake 文档明确指出：**
->> "We do not recommend using GLOB to collect a list of source files from your source tree. If no CMakeLists.txt file changes when a source is added or removed then the generated build system cannot know when to ask CMake to regenerate."
-
-## 3.2 使用现代 CMake
-
-~~`include_directories(${YoUR_DIRECToRY})`~~
-
-~~`link_directories(${YOUR_DIRECTORY})`~~
-
-推荐：
-```cmake
-target_include_directories(myLib PRIVATE include/)
-target_link_libraries(myApp PRIVATE myLib)
-```
-
-## 3.3 使用 Ninja
+## 3.1 使用 Ninja
 
 > `Ninja`的构建速度很快。
 
@@ -111,7 +97,7 @@ target_link_libraries(myApp PRIVATE myLib)
 cmake -B build -G Ninja -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
 ```
 
-如果采用的是 GNU：
+如果采用的是 GCC：
 
 ```bash
 cmake -B build -G Ninja -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++
@@ -123,23 +109,23 @@ cmake -B build -G Ninja -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++
 cmake -B build -G Ninja -DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl
 ```
 
-## 3.4 指定目标编译
-
-如果只想编译 `src` 目录下的代码文件：
+## 3.2 编译
 
 ```bash
-cmake --build build --target my_program -j12
+cmake --build build -j12
 ```
 
-> 这里的 `my_program` 与 `src/CMakeLists.txt` 下的 `add_executable(my_program ${ALL_SRCS})` 相对应。
+> `-j12` 表示指定的线程数是 12。
 
 ---
 
-# 4. 一些问题
+# 4. 项目配置
 
 > 下面是可能在编写代码时遇到的问题，以及对应的解决办法。
 
 ## 4.1 Windows 下编码问题
+
+### 4.1.1 中文输出乱码问题
 
 > Windows 的控制台编码一般采用的是 GB2312 编码的，但源代码编码采用的是 UTF-8 编码（不建议把源代码文件编码改为 GB2312 格式！），所以当有中文在控制台输出时，会产生乱码。解决方法如下：
 
@@ -185,18 +171,39 @@ int main(){
 }
 ```
 
-如果采用 MSVC 编译，需要在 `CMakeLists.txt` 中给目标程序添加编译选项：
+### 4.1.2 MSVC 编译时的问题
+
+如果采用 MSVC 编译，需要在 `CMakeLists.txt` 中给目标程序（包括静态库和动态库）添加编译选项以启用 MSVC 下的 UTF-8 支持：
 
 ```cmake
-# MSVC UTF-8 支持
 if(MSVC)
   target_compile_options(my_app PRIVATE /utf-8)
 endif()
 ```
 
-## 4.2 无法找到头文件
+如果有多个 `target` 都要加 `/utf-8`，可以提到顶层或用 `add_compile_options` 避免重复：
 
-> 在 **VSCode + clangd** 配置下，可能会出现无法找到标准库头文件的情况，导致 clangd 报错，但是编译是可以通过的。一般单独分别安装 llvm 和 mingw 时，会出现这个错误。这个错误是因为 **clangd 无法找到 MinGW 的标准库头文件路径**。虽然你生成了 `compile_commands.json`，但里面的编译器是 MinGW 的 `g++.exe`，而 clangd 需要知道这些头文件在哪里。
+```cmake
+if(MSVC)
+  add_compile_options(/utf-8)
+endif()
+```
+
+> 这会作用于当前 CMakeLists 下所有 target，包括 `add_subdirectory` 下的子目录。
+
+对于动态库的链接：
+
+```cmake
+if(MSVC)
+  set_target_properties(utils PROPERTIES WINDOWS_EXPORT_ALL_SYMBOLS ON)
+endif()
+```
+
+> `WINDOWS_EXPORT_ALL_SYMBOLS` 是专门为动态库（`SHARED`）设计的——它让 MSVC 自动生成 `.lib` 导入库和导出符号。静态库直接被链接进可执行文件，没有"导出符号"这个概念，所以不需要配置。
+
+## 4.2 clangd 配置
+
+在 **VSCode + clangd** 配置下，可能会出现无法找到标准库头文件的情况，导致 clangd 报错，但是编译是可以通过的。一般单独分别安装 llvm 和 mingw 时，会出现这个错误。这个错误是因为 **clangd 无法找到 MinGW 的标准库头文件路径**。虽然你生成了 `compile_commands.json`，但里面的编译器是 MinGW 的 `g++.exe`，而 clangd 需要知道这些头文件在哪里。
 
 其问题根源是 clangd 和 MinGW 是两个不同的工具链：
 - **clangd** 基于 LLVM/Clang，默认在 MSVC 或自身 libc++ 环境下查找头文件
@@ -229,10 +236,12 @@ endif()
 }
 ```
 
-**关键参数**：
-- `--query-driver`：告诉 clangd 查询指定编译器的系统 include 路径
+`--query-driver` 作用是告诉 clangd 允许使用哪些编译器驱动程序来分析代码。它主要用于：
+- Linux 系统上的权限问题：clangd 默认可能无权限访问系统编译器
+- 跨平台编译时：指定允许使用的目标编译器
+- 通常也用通配符设置：`"--query-driver=C:/Apps/CLion 2025.3.2/bin/mingw/bin/**.exe"`
 
-再在项目根目录下创建 `.clangd` 文件，在里面手动指定 MinGW 的 C++ 标准库路径：
+再在项目根目录下创建 `.clangd` 文件，在里面手动指定 MinGW 的头文件搜索路径：
 
 ```yaml
 CompileFlags:
@@ -246,7 +255,9 @@ CompileFlags:
   Compiler: C:/Apps/CLion 2025.3.2/bin/mingw/bin/g++.exe
 ```
 
-> 把上面的路径改成你自己的。
+这个 `Compiler` 选项是给 clangd 语言服务器用的，让它知道用哪个编译器来解析代码、提供准确的代码补全、进行静态分析、报告错误和警告。
+
+> 记得把上面的路径改成你自己的。
 
 ### 4.2.3 方案 3：改用 Clang 编译器
 
@@ -282,14 +293,114 @@ clion64.exe .
 
 这样打开的 IDE 就会继承  **Developer PowerShell for VS 2022** 中的环境。
 
-> 前提是要把 VSCode 和 CLion 添加到环境变量中。这里建议使用  **Developer PowerShell for VS 2022** 而不是 **Developer Command Prompt for VS 2022**，因为前者的命令行功能更强大。
+> 前提是要把 VSCode 和 CLion 添加到环境变量中。
 
 在编译时指定编译器：`-DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl`。
 
-如果使用 MSVC 生成器（Visual Studio Generator），是不会生成 `compile_commands.json` 文件的：
+如果使用 MSVC 生成器（Visual Studio Generator），这会生成 VS 解决方案，但是不会生成 `compile_commands.json` 文件：
 
 ```shell
 cmake -B build -G "Visual Studio 17 2022" -DCMAKE_BUILD_TYPE=Debug
 ```
 
 因此，除非要使用 VS 进行开发，其他情况生成器请选择 Ninja 或者 Unix Makefiles。
+
+---
+
+# 5. GTest 配置
+
+## 5.1 方式一：联网下载
+
+在顶层 `CMakeLists.txt` 中添加：
+
+```cmake
+enable_testing()
+```
+
+> `gtest_discover_tests` 注册测试用例依赖 `enable_testing()` 这个开关，没有它 CTest `完全不知道有测试存在。该选项必须在顶层，add_subdirectory` 之前
+
+再在 `tests/CMakeLists.txt` 中添加：
+
+```cmake
+# tests/CMakeLists.txt
+
+include(FetchContent)
+
+FetchContent_Declare(
+  googletest
+  URL https://github.com/google/googletest/archive/refs/tags/v1.14.0.zip
+  DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+)
+
+# Windows 上保持 MSVC 运行时一致性
+if(MSVC)
+  set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+endif()
+
+FetchContent_MakeAvailable(googletest)
+
+add_executable(unit_tests
+    unit/test_circle.cpp
+    unit/test_rectangle.cpp
+)
+
+target_link_libraries(unit_tests
+    PRIVATE core GTest::gtest_main
+)
+
+include(GoogleTest)
+gtest_discover_tests(unit_tests)
+```
+
+> `FetchContent` 是有缓存机制的，第一次 configure 时，CMake 会把 GTest 下载并解压到：
+>
+> ```
+> build/_deps/googletest-src/
+> build/_deps/googletest-build/
+> build/_deps/googletest-subbuild/
+> ```
+>
+> 后续再跑同样的 `cmake -B build ...` 命令，只要 `build/` 目录存在，CMake 检测到 `_deps` 已经存在就直接跳过下载。
+
+- **`set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)`**：仅在 Windows + MSVC 下有意义。MSVC 编译时有两种运行时库：`/MT`（静态）和 `/MD`（动态）。如果你的项目用 `/MD`，但 GTest 默认编译成 `/MT`，链接时会报冲突。这个变量强制 GTest 跟你的项目保持一致，用同一种运行时，避免报错。
+
+- **`include(GoogleTest)`**：加载 CMake 内置的 `GoogleTest` 模块，这个模块提供了 `gtest_discover_tests` 这个函数。没有这行，下一行就会报"找不到命令"。
+
+- **`gtest_discover_tests(unit_tests)`**：让 CMake 在构建完成后自动运行 `unit_tests` 可执行文件，扫描里面所有 `TEST()`、`TEST_F()` 的用例，并逐一注册到 CTest 中。这样 `ctest` 才能发现并运行它们。它比旧的 `gtest_add_tests` 更可靠，因为是运行时发现而不是静态解析源码。
+
+## 5.2 方式二：添加到 3rdparty 目录下
+
+手动从 github [google/googletest](https://github.com/google/googletest) 下载好后，解压缩把源码目录放到 `3rdparty` 目录下。
+
+在顶层 `CMakeLists.txt` 中添加：
+
+```cmake
+# 开启 gtest_discover_tests 注册测试用例依赖
+enable_testing()
+
+add_subdirectory(${CMAKE_SOURCE_DIR}/3rdparty/googletest-1.17.0)
+```
+
+> 把 `googletest-1.17.0` 这个改成你自己的源码目录名。
+
+然后在 `tests/CMakeLists.txt` 中添加：
+
+```cmake
+# tests/CMakeLists.txt
+
+if(MSVC)
+  set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+endif()
+
+add_executable(unit_tests
+  unit/test_circle.cpp
+  unit/test_rectangle.cpp
+)
+
+target_link_libraries(unit_tests
+  PRIVATE core GTest::gtest_main
+)
+
+include(GoogleTest)
+gtest_discover_tests(unit_tests)
+```
